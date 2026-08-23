@@ -6,6 +6,7 @@ import {
   deleteInterview,
   generateInterview,
   submitAnswer,
+  evaluateInterview,
 } from '../controllers/interviewController.js';
 import { protect } from '../middleware/authmiddleware.js';
 
@@ -15,12 +16,14 @@ router.post('/', protect, createInterview);
 
 router.get('/', protect, getInterviews);
 
-router.get('/:id', protect, getInterview);
-
 router.post('/generate', protect, generateInterview);
 
-router.delete('/:id', protect, deleteInterview);
+router.get('/:id', protect, getInterview);
 
 router.post('/:id/answer', protect, submitAnswer);
+
+router.post('/:id/evaluate', protect, evaluateInterview);
+
+router.delete('/:id', protect, deleteInterview);
 
 export default router;

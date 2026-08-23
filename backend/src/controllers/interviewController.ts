@@ -1,6 +1,10 @@
 import type { Request, Response } from 'express';
 import { Types } from 'mongoose';
 import { Interview } from '../models/Interview.js';
+import {
+  generateInterviewQuestions,
+  evaluateInterview as evaluateInterviewAI,
+} from '../services/aiService.js';
 
 export const createInterview = async (req: Request, res: Response) => {
   try {
@@ -48,9 +52,12 @@ export const getInterviews = async (req: Request, res: Response) => {
 
     const interviews = await Interview.find({
       userId: req.userId,
-    }).sort({ createdAt: -1 });
+    })
+      .select('role difficulty score createdAt updatedAt')
+      .sort({ createdAt: -1 });
 
     return res.status(200).json({
+      count: interviews.length,
       interviews,
     });
   } catch (error) {
@@ -138,8 +145,6 @@ export const deleteInterview = async (req: Request, res: Response) => {
     });
   }
 };
-
-import { generateInterviewQuestions } from '../services/aiService.js';
 
 export const generateInterview = async (req: Request, res: Response) => {
   try {
@@ -234,6 +239,87 @@ export const submitAnswer = async (req: Request, res: Response) => {
 
     return res.status(500).json({
       message: 'Internal server error',
+    });
+  }
+};
+
+export const evaluateInterview = async (req: Request, res: Response) => {
+  try {
+    if (!req.userId) {
+      return res.status(401).json({
+        message: 'Not authorized',
+      });
+    }
+
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({
+        message: 'Interview ID is required',
+      });
+    }
+
+    // Find interview and make sure it belongs to the logged-in user
+    const interview = await Interview.findOne({
+      _id: id,
+      userId: req.userId,
+    });
+
+    if (!interview) {
+      return res.status(404).json({
+        message: 'Interview not found',
+      });
+    }
+
+    // Make sure the candidate has answered the questions
+    const unansweredQuestions = interview.questions.filter((question) => !question.answer);
+
+    if (unansweredQuestions.length > 0) {
+      return res.status(400).json({
+        message: 'Please answer all questions before evaluating the interview',
+        unanswered: unansweredQuestions.length,
+      });
+    }
+
+    // Send questions and answers to Gemini
+    const evaluation = await evaluateInterviewAI(
+      interview.role,
+      interview.difficulty,
+      interview.questions
+    );
+
+    // Save individual scores and feedback
+    evaluation.evaluations.forEach(
+      (result: { questionNumber: number; score: number; feedback: string }) => {
+        const questionIndex = result.questionNumber - 1;
+
+        if (interview.questions[questionIndex]) {
+          interview.questions[questionIndex].score = result.score;
+          interview.questions[questionIndex].feedback = result.feedback;
+        }
+      }
+    );
+
+    // Save overall score
+    interview.score = evaluation.overallScore;
+    interview.overallFeedback = evaluation.overallFeedback;
+
+    await interview.save();
+
+    return res.status(200).json({
+      message: 'Interview evaluated successfully',
+      result: {
+        interviewId: interview._id,
+        score: evaluation.overallScore,
+        overallFeedback: evaluation.overallFeedback,
+        questions: interview.questions,
+      },
+    });
+  } catch (error) {
+    console.error('Evaluate interview error:', error);
+
+    return res.status(500).json({
+      message: 'Failed to evaluate interview',
     });
   }
 };

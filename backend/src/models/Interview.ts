@@ -8,8 +8,12 @@ export interface IInterview extends Document {
     _id?: mongoose.Types.ObjectId;
     question: string;
     answer?: string;
+    score?: number;
+    feedback?: string;
   }[];
   score?: number;
+  overallFeedback?: string;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -42,11 +46,23 @@ const interviewSchema = new Schema<IInterview>(
         answer: {
           type: String,
         },
+        score: {
+          type: Number,
+          min: 0,
+          max: 10,
+        },
+        feedback: {
+          type: String,
+        },
       },
     ],
-
     score: {
       type: Number,
+      min: 0,
+      max: 10,
+    },
+    overallFeedback: {
+      type: String,
     },
   },
   {

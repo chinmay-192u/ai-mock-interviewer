@@ -32,8 +32,13 @@ export const register = async (req: Request, res: Response) => {
       password: hashedPassword,
     });
 
+    // Generate JWT
+    const token = generateToken(user._id.toString());
+
+    // Return token to frontend
     return res.status(201).json({
       message: 'User registered successfully',
+      token,
       user: {
         id: user._id,
         name: user.name,
