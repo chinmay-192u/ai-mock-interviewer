@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import { User } from '../models/User.js';
+import { generateToken } from '../services/authService.js';
 
 export const register = async (req: Request, res: Response) => {
   try {
@@ -44,6 +45,80 @@ export const register = async (req: Request, res: Response) => {
 
     return res.status(500).json({
       message: 'Internal server error',
+    });
+  }
+};
+
+export const login = async (req: Request, res: Response) => {
+  try {
+    const { email, password } = req.body;
+
+    // Validate input
+    if (!email || !password) {
+      return res.status(400).json({
+        message: 'Email and password are required',
+      });
+    }
+
+    // Find user
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(401).json({
+        message: 'Invalid email or password',
+      });
+    }
+
+    // Compare password
+    const passwordMatch = await bcrypt.compare(password, user.password);
+
+    if (!passwordMatch) {
+      return res.status(401).json({
+        message: 'Invalid email or password',
+      });
+    }
+
+    // Generate JWT
+    const token = generateToken(user._id.toString());
+
+    return res.status(200).json({
+      message: 'Login successful',
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+      },
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+
+    return res.status(500).json({
+      message: 'Internal server error',
+    });
+  }
+};
+
+export const getMe = async (req: Request, res: Response) => {
+  try {
+    console.log('Authenticated userId:', req.userId);
+
+    const user = await User.findById(req.userId).select('-password');
+
+    console.log('Found user:', user);
+
+    if (!user) {
+      return res.status(404).json({
+        message: 'User not found',
+      });
+    }
+
+    res.json({
+      user,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Server error',
     });
   }
 };

@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import authRoutes from './routes/authRoutes.js';
 import { connectDatabase } from './config/database.js';
+import interviewRoutes from './routes/interviewRoutes.js';
 
 dotenv.config();
 
@@ -16,6 +17,7 @@ app.use(express.json());
 
 // Auth routes
 app.use('/api/auth', authRoutes);
+app.use('/api/interviews', interviewRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({
